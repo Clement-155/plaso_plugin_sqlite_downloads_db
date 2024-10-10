@@ -1,6 +1,3 @@
-## Reference for "downloads.db" artifact 
-1. https://forensafe.com/blogs/Android_Downloads.html
----
 ## Plaso (Plaso Langar Að Safna Öllu) - super timeline all the things
 
 Plaso (Plaso Langar Að Safna Öllu), or *super timeline all the things*, is a
