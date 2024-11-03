@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
-"""SQLite parser plugin for Native Downloads (DownloadManager API) database files."""
+"""SQLite parser plugin for Android Native Downloads (DownloadManager API) database files."""
 
-from dfdatetime import java_time as dfdatetime_java_time
+from dfdatetime import posix_time as dfdatetime_posix_time
 
 from plaso.containers import events
 from plaso.parsers import sqlite
 from plaso.parsers.sqlite_plugins import interface
 
 
-class NativeDownloadsEventData(events.EventData):
-  """Native Downloads (DownloadManager API) event data.
+class AndroidNativeDownloadsEventData(events.EventData):
+  """Android Native Downloads (DownloadManager API) event data.
 
   # TODO : Where to include source (https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/core/java/android/app/DownloadManager.java)?
 
@@ -125,7 +125,7 @@ class NativeDownloadsEventData(events.EventData):
     
     // 12/10/2024
     
-    numfailed (int) [ TODO ]
+    numfailed (int) : The column that is used to count retries
     
     // 12/10/2024
     
@@ -134,7 +134,7 @@ class NativeDownloadsEventData(events.EventData):
     
     // 12/10/2024
     
-    notificationclass (str)
+    notificationclass (str) 
     notificationextras (str)
     cookiedata (str)
     useragent (str)
@@ -148,7 +148,7 @@ class NativeDownloadsEventData(events.EventData):
     // 12/10/2024
     
     etag (str) [ TODO ]
-    uid (int) [ TODO ]
+    uid (int) :
     otheruid (int)
     
     // 12/10/2024
@@ -164,7 +164,7 @@ class NativeDownloadsEventData(events.EventData):
     is_public_api (int) [ TODO ]
     allow_roaming (int) [ TODO ]
     allowed_network_types (int) [ TODO ]
-    is_visible_in_downloads_ui (int) [ TODO ]
+    is_visible_in_downloads_ui (int) :  Whether or not this download should be displayed in the system's Downloads UI.  Defaults to true.
     bypass_recommended_size_limit (int) [ TODO ]
     
     // 12/10/2024
@@ -184,7 +184,22 @@ class NativeDownloadsEventData(events.EventData):
     mediastore_uri (str): Similar to mediaprovider_uri, except this cannot be updated/queried by apps and will be the source of truth when 
         updating/deleting download entries in MediaProvider database.
     
-    // 12/10/2024
+    List of used attributes?:
+    _id
+    uri
+    _data
+    mimetype
+    destination
+    visibility
+    status
+    lastmod
+    notificationpackage
+    total_bytes
+    etag
+    deleted
+    is_visible_in_downloads_ui
+    title
+    
     
   """
 
@@ -192,11 +207,95 @@ class NativeDownloadsEventData(events.EventData):
 
   def __init__(self):
     """Initializes event data."""
-    super(NativeDownloadsEventData, self).__init__(data_type=self.DATA_TYPE)
-    self.id = None
-    self.body = None
-    self.creation_time = None
-    self.offset = None
-    self.query = None
-    self.sms_read = None
-    self.sms_type = None
+    super(AndroidNativeDownloadsEventData, self).__init__(data_type=self.DATA_TYPE)
+    #TODO
+    # self.id = None
+    # self.body = None
+    # self.creation_time = None
+    # self.offset = None
+    # self.query = None
+    # self.sms_read = None
+    # self.sms_type = None
+
+class AndroidNativeDownloadsPlugin(interface.SQLitePlugin):
+  """SQLite parser plugin for Android native downloads database files.
+
+  The Android native downloads database file is typically stored in:
+  /data/com.android.providers.downloads/databases/downloads.db
+  """
+
+  NAME = 'android_native_downloads'
+  DATA_FORMAT = 'Android native downloads SQLite database (downloads.db) file'
+
+  REQUIRED_STRUCTURE = {
+      'downloads': frozenset([])} #TODO
+
+  QUERIES = [
+      ('SELECT * FROM downloads',
+       'ParseDownloadsRow')] #TODO
+
+  SCHEMAS = [{
+      'android_metadata': (
+          'CREATE TABLE android_metadata (locale TEXT) '),
+      'downloads': (
+          'CREATE TABLE downloads(_id INTEGER PRIMARY KEY AUTOINCREMENT, uri TEXT, method INTEGER, '
+          'entity TEXT, no_integrity BOOLEAN, hint TEXT, otaupdate BOOLEAN, _data TEXT, mimetype TEXT, '
+          'destination INTEGER, no_system BOOLEAN, visibility INTEGER, control INTEGER, status INTEGER, '
+          'numfailed INTEGER, lastmod BIGINT, notificationpackage TEXT, notificationclass TEXT, '
+          'notificationextras TEXT, cookiedata TEXT, useragent TEXT, referer TEXT, total_bytes INTEGER, '
+          'current_bytes INTEGER, etag TEXT, uid INTEGER, otheruid INTEGER, title TEXT, description TEXT, ' 
+          'scanned BOOLEAN, is_public_api INTEGER NOT NULL DEFAULT 0, allow_roaming INTEGER NOT NULL DEFAULT 0, '
+          'allowed_network_types INTEGER NOT NULL DEFAULT 0, is_visible_in_downloads_ui INTEGER NOT NULL DEFAULT 1, '
+          'bypass_recommended_size_limit INTEGER NOT NULL DEFAULT 0, mediaprovider_uri TEXT, '
+          'deleted BOOLEAN NOT NULL DEFAULT 0, errorMsg TEXT, allow_metered INTEGER NOT NULL DEFAULT 1, '
+          'allow_write BOOLEAN NOT NULL DEFAULT 0, flags INTEGER NOT NULL DEFAULT 0, mediastore_uri TEXT DEFAULT NULL)'),
+      'request_headers': (
+          'CREATE TABLE request_headers(id INTEGER PRIMARY KEY AUTOINCREMENT, download_id INTEGER NOT NULL, '
+          'header TEXT NOT NULL,value TEXT NOT NULL)'),
+      'sqlite_sequence': (
+          'CREATE TABLE sqlite_sequence(name,seq)')}]
+
+  def _GetDateTimeRowValue(self, query_hash, row, value_name):
+    """Retrieves a date and time value from the row.
+
+    Args:
+      query_hash (int): hash of the query, that uniquely identifies the query
+          that produced the row.
+      row (sqlite3.Row): row.
+      value_name (str): name of the value.
+
+    Returns:
+      dfdatetime.PosixTime: date and time value or None if not available.
+    """
+    timestamp = self._GetRowValue(query_hash, row, value_name)
+    if timestamp is None:
+      return None
+
+    return dfdatetime_posix_time.PosixTime(timestamp=timestamp)
+
+  def ParseDownloadsRow(self, parser_mediator, query, row, **unused_kwargs):
+    #TODO
+    """Parses a download row.
+
+    Args:
+      parser_mediator (ParserMediator): mediates interactions between parsers
+          and other components, such as storage and dfVFS.
+      query (str): query that created the row.
+      row (sqlite3.Row): row.
+    """
+    # query_hash = hash(query)
+
+    event_data = AndroidNativeDownloadsEventData()
+    # event_data.address = self._GetRowValue(query_hash, row, 'address')
+    # event_data.body = self._GetRowValue(query_hash, row, 'body')
+    # event_data.creation_time = self._GetDateTimeRowValue(
+    #     query_hash, row, 'date')
+    # event_data.offset = self._GetRowValue(query_hash, row, 'id')
+    # event_data.query = query
+    # event_data.sms_read = self._GetRowValue(query_hash, row, 'read')
+    # event_data.sms_type = self._GetRowValue(query_hash, row, 'type')
+
+    parser_mediator.ProduceEventData(event_data)
+
+
+sqlite.SQLiteParser.RegisterPlugin(AndroidNativeDownloadsEventData)
