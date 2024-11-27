@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """SQLite parser plugin for Android Native Downloads (DownloadManager API) database files."""
+import re
 
 from dfdatetime import java_time as dfdatetime_java_time
 
@@ -24,38 +25,37 @@ class AndroidNativeDownloadsEventData(events.EventData):
         otherwise it holds one of the ERROR_* constants.
         If the download is paused, this holds one of the PAUSED_* constants.
 
-        // is this one correct? in reference "https://android.googlesource.com/platform/frameworks/base/+/refs/heads/master/core/java/android/provider/Downloads.java"
-        // legal values is STATUS_*
-        // List of STATUS_* constants :
-        //    STATUS_PENDING = 190, This download hasn't stated yet
-        //    STATUS_RUNNING = 192, This download has started
-        //    STATUS_PAUSED_BY_APP = 193, This download has been paused by the owning app.
-        //    STATUS_WAITING_TO_RETRY = 194, This download encountered some network error and is waiting before retrying the request.
-        //    STATUS_WAITING_FOR_NETWORK = 195, This download is waiting for network connectivity to proceed.
-        //    STATUS_QUEUED_FOR_WIFI = 196, This download exceeded a size limit for mobile networks and is waiting for a Wi-Fi connection to proceed.
-        //    STATUS_INSUFFICIENT_SPACE_ERROR = 198, This download couldn't be completed due to insufficient storage space.  Typically, this is because the SD card
+        TODO : is this one correct? in reference "https://android.googlesource.com/platform/frameworks/base/+/refs/heads/master/core/java/android/provider/Downloads.java" legal values is STATUS_*
+        List of STATUS_* constants :
+           STATUS_PENDING = 190, This download hasn't stated yet
+           STATUS_RUNNING = 192, This download has started
+           STATUS_PAUSED_BY_APP = 193, This download has been paused by the owning app.
+           STATUS_WAITING_TO_RETRY = 194, This download encountered some network error and is waiting before retrying the request.
+           STATUS_WAITING_FOR_NETWORK = 195, This download is waiting for network connectivity to proceed.
+           STATUS_QUEUED_FOR_WIFI = 196, This download exceeded a size limit for mobile networks and is waiting for a Wi-Fi connection to proceed.
+           STATUS_INSUFFICIENT_SPACE_ERROR = 198, This download couldn't be completed due to insufficient storage space.  Typically, this is because the SD card
                 is full.
-        //    STATUS_DEVICE_NOT_FOUND_ERROR = 199, This download couldn't be completed because no external storage device was found.  Typically, this is because the SD
+           STATUS_DEVICE_NOT_FOUND_ERROR = 199, This download couldn't be completed because no external storage device was found.  Typically, this is because the SD
                 card is not mounted.
-        //    STATUS_SUCCESS = 200, This download has successfully completed. Warning: there might be other status values that indicate success in the future.
-        //    STATUS_BAD_REQUEST = 400, This request couldn't be parsed. This is also used when processing requests with unknown/unsupported URI schemes.
-        //    STATUS_NOT_ACCEPTABLE = 406, This download can't be performed because the content type cannot be handled.
-        //    STATUS_LENGTH_REQUIRED = 411, This download cannot be performed because the length cannot be determined accurately. This is the code for the HTTP error
+           STATUS_SUCCESS = 200, This download has successfully completed. Warning: there might be other status values that indicate success in the future.
+           STATUS_BAD_REQUEST = 400, This request couldn't be parsed. This is also used when processing requests with unknown/unsupported URI schemes.
+           STATUS_NOT_ACCEPTABLE = 406, This download can't be performed because the content type cannot be handled.
+           STATUS_LENGTH_REQUIRED = 411, This download cannot be performed because the length cannot be determined accurately. This is the code for the HTTP error
                 "Length Required", which is typically used when making requests that require a content length but don't have one, and it is also used in the client when a
                 response is received whose length cannot be determined accurately (therefore making it impossible to know when a download completes).
-        //    STATUS_PRECONDITION_FAILED = 412, This download was interrupted and cannot be resumed. This is the code for the HTTP error "Precondition Failed", and it is
+           STATUS_PRECONDITION_FAILED = 412, This download was interrupted and cannot be resumed. This is the code for the HTTP error "Precondition Failed", and it is
                 also used in situations where the client doesn't have an ETag at all.
-        //    MIN_ARTIFICIAL_ERROR_STATUS = 488, The lowest-valued error status that is not an actual HTTP status code.
-        //    STATUS_FILE_ALREADY_EXISTS_ERROR = 488, The requested destination file already exists.
-        //    STATUS_CANNOT_RESUME = 489, Some possibly transient error occurred, but we can't resume the download.
-        //    STATUS_CANCELED = 490, This download was canceled
-        //    STATUS_UNKNOWN_ERROR = 491, This download has completed with an error. Warning: there will be other status values that indicate errors in the future.
-        //    STATUS_FILE_ERROR = 492, This download couldn't be completed because of a storage issue. Typically, that's because the filesystem is missing or full.
-        //    STATUS_UNHANDLED_REDIRECT = 493, This download couldn't be completed because of an HTTP redirect response that the download manager couldn't handle.
-        //    STATUS_UNHANDLED_HTTP_CODE = 494, This download couldn't be completed because of an unspecified unhandled HTTP code.
-        //    STATUS_HTTP_DATA_ERROR = 495, This download couldn't be completed because of an error receiving or processing data at the HTTP level.
-        //    STATUS_HTTP_EXCEPTION = 496, This download couldn't be completed because of an HttpException while setting up the request.
-        //    STATUS_TOO_MANY_REDIRECTS = 497, This download couldn't be completed because there were too many redirects.
+           MIN_ARTIFICIAL_ERROR_STATUS = 488, The lowest-valued error status that is not an actual HTTP status code.
+           STATUS_FILE_ALREADY_EXISTS_ERROR = 488, The requested destination file already exists.
+           STATUS_CANNOT_RESUME = 489, Some possibly transient error occurred, but we can't resume the download.
+           STATUS_CANCELED = 490, This download was canceled
+           STATUS_UNKNOWN_ERROR = 491, This download has completed with an error. Warning: there will be other status values that indicate errors in the future.
+           STATUS_FILE_ERROR = 492, This download couldn't be completed because of a storage issue. Typically, that's because the filesystem is missing or full.
+           STATUS_UNHANDLED_REDIRECT = 493, This download couldn't be completed because of an HTTP redirect response that the download manager couldn't handle.
+           STATUS_UNHANDLED_HTTP_CODE = 494, This download couldn't be completed because of an unspecified unhandled HTTP code.
+           STATUS_HTTP_DATA_ERROR = 495, This download couldn't be completed because of an error receiving or processing data at the HTTP level.
+           STATUS_HTTP_EXCEPTION = 496, This download couldn't be completed because of an HttpException while setting up the request.
+           STATUS_TOO_MANY_REDIRECTS = 497, This download couldn't be completed because there were too many redirects.
 
 
         List of ERROR_* constants :
@@ -85,7 +85,7 @@ class AndroidNativeDownloadsEventData(events.EventData):
     deleted (bool): Set to true if this download is deleted. It is completely removed from the database when
         MediaProvider database also deletes the metadata associated with this downloaded file.
     notification_package (str): Package name associated with notification of a running download.
-    title (str): Path to the downloaded file on disk.
+    title (str): Title of the download.
     media_provider_uri (str): The URI to the corresponding entry in MediaProvider for this downloaded entry. It is
         used to delete the entries from MediaProvider database when it is deleted from the
         downloaded list.
@@ -150,7 +150,7 @@ class AndroidNativeDownloadsEventData(events.EventData):
 
 
 class AndroidNativeDownloadsPlugin(interface.SQLitePlugin):
-  """SQLite parser plugin for Android native downloads database files.
+  """SQLite parser plugin for Android native downloads database file.
 
   The Android native downloads database file is typically stored in:
   com.android.providers.downloads/databases/downloads.db
@@ -161,11 +161,11 @@ class AndroidNativeDownloadsPlugin(interface.SQLitePlugin):
 
   REQUIRED_STRUCTURE = {
       'downloads': frozenset(['_id', 'uri', '_data', 'mimetype', 'destination', 'visibility', 'status', 'lastmod',
-                              'notificationpackage', 'total_bytes', 'current_bytes', 'etag', 'description',
+                              'notificationpackage', 'total_bytes', 'current_bytes', 'etag', 'title', 'description',
                               'is_visible_in_downloads_ui', 'mediaprovider_uri', 'deleted', 'errorMsg'])}
   QUERIES = [
       ('SELECT _id, uri, _data, mimetype, destination, visibility, status, lastmod, '
-          'notificationpackage, total_bytes, current_bytes, etag, description, '
+          'notificationpackage, total_bytes, current_bytes, etag, title, description, '
           'is_visible_in_downloads_ui, mediaprovider_uri, deleted, errorMsg FROM downloads',
        'ParseDownloadsRow')]
 
@@ -208,8 +208,9 @@ class AndroidNativeDownloadsPlugin(interface.SQLitePlugin):
 
     return dfdatetime_java_time.JavaTime(timestamp=timestamp)
 
+  # TODO : Should long description of values for 'status', 'destination', and 'visibility' be included?
+
   def ParseDownloadsRow(self, parser_mediator, query, row, **unused_kwargs):
-    #TODO
     """Parses a download row.
 
     Args:
@@ -218,19 +219,29 @@ class AndroidNativeDownloadsPlugin(interface.SQLitePlugin):
       query (str): query that created the row.
       row (sqlite3.Row): row.
     """
-    # query_hash = hash(query)
+    query_hash = hash(query)
 
     event_data = AndroidNativeDownloadsEventData()
-    # event_data.address = self._GetRowValue(query_hash, row, 'address')
-    # event_data.body = self._GetRowValue(query_hash, row, 'body')
-    # event_data.creation_time = self._GetDateTimeRowValue(
-    #     query_hash, row, 'date')
-    # event_data.offset = self._GetRowValue(query_hash, row, 'id')
-    # event_data.query = query
-    # event_data.sms_read = self._GetRowValue(query_hash, row, 'read')
-    # event_data.sms_type = self._GetRowValue(query_hash, row, 'type')
+    event_data.lastmod = self._GetDateTimeRowValue(query_hash, row, 'lastmod')
+    event_data.id = self._GetRowValue(query_hash, row, '_id')
+    event_data.uri = self._GetRowValue(query_hash, row, 'uri')
+    event_data.mimetype = self._GetRowValue(query_hash, row, 'mimetype')
+    event_data.total_bytes = self._GetRowValue(query_hash, row, 'total_bytes')
+    event_data.current_bytes = self._GetRowValue(query_hash, row, 'current_bytes')
+    event_data.status = self._GetRowValue(query_hash, row, 'status')
+    event_data.saved_to = self._GetRowValue(query_hash, row, '_data')
+    event_data.deleted = self._GetRowValue(query_hash, row, 'deleted')
+    event_data.notification_package = self._GetRowValue(query_hash, row, 'notificationpackage')
+    event_data.title = self._GetRowValue(query_hash, row, 'title')
+    event_data.error_msg = self._GetRowValue(query_hash, row, 'errorMsg')
+    event_data.is_visible_in_downloads_ui = self._GetRowValue(query_hash, row, 'is_visible_in_downloads_ui')
+    event_data.media_provider_uri = self._GetRowValue(query_hash, row, 'mediaprovider_uri')
+    event_data.destination = self._GetRowValue(query_hash, row, 'destination')
+    event_data.ui_visibility = self._GetRowValue(query_hash, row, 'visibility')
+    event_data.e_tag = self._GetRowValue(query_hash, row, 'etag')
+    event_data.description = self._GetRowValue(query_hash, row, 'description')
 
     parser_mediator.ProduceEventData(event_data)
 
 
-sqlite.SQLiteParser.RegisterPlugin(AndroidNativeDownloadsEventData)
+sqlite.SQLiteParser.RegisterPlugin(AndroidNativeDownloadsPlugin)
